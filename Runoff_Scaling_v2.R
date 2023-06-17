@@ -43,6 +43,7 @@ PowerFit = function (data_table,cluster_list){
   lmSummary = glance(lmfit)
   coefficients1 = setDT(tidy(lmfit))
   coefficients = coefficients1[,c('cluster','k','c','StError_c','StError_k','p_value'):=.(cluster_list,coefficients1[1,10^(estimate)],coefficients1[2,estimate],coefficients1[2,std.error],coefficients1[1,std.error],coefficients1[2,p.value])]
+  coefficients = coefficients[,k:=10^k]
   Statistics = unique(coefficients[,c('cluster','k','c','StError_c','StError_k','p_value')],by='cluster')
   #Statistics = Statistics[,Name:=Group_Names[cluster_list]]
 }
@@ -79,6 +80,7 @@ write.csv(unique(GRDC_Reference_Stations[,'river'],by='river'),paste0(root,'\\Da
 Dam_Stations = fread(paste0(root,'\\Data\\Dams\\DammedStations_list.csv')) # Mono River Removed due to web scraping issues
 Dam_Stations = merge(Dam_Stations,GRDC_Reference_Stations[,c('river','site_number')], by='river')
 
+# Toggle Dam Stations
 #GRDC_Reference_Stations = GRDC_Reference_Stations[site_number%in%(Dam_Stations[Dam=='No',site_number])]
 
 # Create list of all Stations
@@ -235,11 +237,31 @@ ScalingData = unique(AllDischarge[,c(1,4:7)],by='site_number')
 Statistics = lapply(1:max(ScalingData$cluster),PowerFit,data_table=ScalingData)
 Statistics = rbindlist(Statistics)
 
-ggplot(unique(AllDischarge,by='site_number'),aes(area,mean_Qcms,color=country))+
+Scaling_facet= ggplot(unique(AllDischarge,by='site_number'),aes(area,mean_Qcms,color=country))+
   facet_wrap(vars(cluster),scales='free')+
   geom_point()+
   scale_x_log10(labels=scientific)+
   scale_y_log10(labels=scientific)+
+  theme_bw()
+
+c = ggplot(Statistics,aes(cluster,c))+
+  geom_hline(yintercept=1, linetype='dashed')+
+  geom_errorbar(aes(ymin=(c - StError_c), ymax=c + StError_c, width=0.25))+
+  geom_point()+
+  scale_x_continuous(breaks=c(1:25))+
+  #scale_y_continuous(limits = c(0.25,1.4))+
+  labs(x='Cluster',y='Scaling Parameter, c')+
+  theme_bw()
+
+AvePrecip = unique(ClusteringData[,meanPrecip:=mean(Precip),by='cluster'],by='cluster')
+AvePrecip = merge(Statistics,AvePrecip[,c('cluster','meanPrecip')],by='cluster')
+ggplot(AvePrecip,aes(meanPrecip,c))+
+  #geom_hline(yintercept=1, linetype='dashed')+
+  geom_errorbar(aes(ymin=(c - StError_c), ymax=c + StError_c, width=0.05))+
+  geom_point()+
+  scale_x_continuous(breaks=c(1:25))+
+  #scale_y_continuous(limits = c(0.25,1.4))+
+  labs(x='Cluster Average Precipitation',y='Scaling Parameter, c')+
   theme_bw()
 
 print(mean(Statistics$c))
@@ -253,7 +275,7 @@ Formatted_Table <- gt(data = Stats_df)
 
 # Perform any table formatting or styling using the gt package functions
 Formatted_Table <- Formatted_Table %>%
-  tab_header(title = "Globally Representative Dataset") %>%
+  tab_header(title = "Scaling Results") %>%
   tab_style(style = cell_text(weight = "bold"),locations = cells_title()) %>%
   opt_horizontal_padding(scale=3) %>%
   cols_label(StError_c = 'St.E. c', StError_k = 'St.E. k', p_value = 'p-value') %>%
