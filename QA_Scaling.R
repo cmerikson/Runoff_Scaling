@@ -54,7 +54,9 @@ Calculate_c = function(group,data,Q) {
   grouplm = lm(data=df, c ~ AvRE)
   intercept = (coef(grouplm))[[1]]
   slope = (coef(grouplm))[[2]]
+  r2 = summary(grouplm)$r.squared
   Modeled = copy(Annual[Group==group])
+  Modeled = Modeled[Group==group,c('Slope','Intercept','R_squared'):=.(slope,intercept,r2)]
   Modeled_c = Modeled[Group==group,Calc_c:=(slope*RunoffRatio)+intercept]
   return(Modeled_c)
 }
@@ -157,9 +159,9 @@ RegressionData = merge(RegressionData,unique(Annual[,c('cluster','RE_se')],by='c
 RegressionData = merge(RegressionData,Statistics[,c('cluster','StError_c','Qi')],by=c('cluster','Qi'))
 
 ggplot(RegressionData[Qi=='Q100'],aes(AvRE,c))+
-  stat_smooth(data=RegressionData[Group%in%c('A','B')],method='lm',aes(color=Group),se=F)+
-  stat_cor(data=RegressionData[Group%in%c('A','B')],aes(color=Group,label=..rr.label..),label.x.npc = 0.75,label.y.npc = 0.3)+
-  stat_regline_equation(data=RegressionData[Group%in%c('A','B')],aes(color=Group),label.x.npc = 0.75,label.y.npc = 0.1)+
+  stat_smooth(data=RegressionData[Group%in%c('A','B') & Qi=='Q100'],method='lm',aes(color=Group),se=F)+
+  stat_cor(data=RegressionData[Group%in%c('A','B') & Qi=='Q100'],aes(color=Group,label=..rr.label..),label.x.npc = 0.75,label.y.npc = 0.3)+
+  stat_regline_equation(data=RegressionData[Group%in%c('A','B') & Qi=='Q100'],aes(color=Group),label.x.npc = 0.75,label.y.npc = 0.1)+
   geom_hline(yintercept = 1,linetype='dashed')+
   geom_errorbar(aes(ymin=c-StError_c, ymax=c+StError_c),alpha=0.3)+
   geom_errorbarh(aes(xmin=AvRE-RE_se,xmax=AvRE+RE_se),alpha=0.3)+
@@ -253,3 +255,46 @@ Q100Map = ggplot()+
                          pad_x = unit(55, "pt"), pad_y = unit(25, "pt"),
                          style = north_arrow_nautical()) +
   labs(x='Longitude',y='Latitude',fill='Kriged Scaling Parameter (c)',title='Q100')
+
+#### Tables ####
+Statistics = Statistics[,cluster:=Group_Names[cluster]]
+Stats_df <- as.data.frame(Statistics)
+
+# Create a gt table from the data frame
+Formatted_Table <- gt(data = Stats_df)
+
+# Perform any table formatting or styling using the gt package functions
+Formatted_Table <- Formatted_Table %>%
+  tab_header(title = "Scaling Results") %>%
+  tab_style(style = cell_text(weight = "bold"),locations = cells_title()) %>%
+  opt_horizontal_padding(scale=3) %>%
+  cols_label(StError_c = 'St.E. c', StError_k = 'St.E. k', p_value = 'p-value', Qi = 'R.I.') %>%
+  fmt_number(columns = c('k','c','StError_c','StError_k','p_value'),n_sigfig = 2) %>%
+  fmt_scientific(columns = c('k','p_value'),decimals = 2) %>%
+  text_case_match("mean_Qcms" ~ "Mean Annual")
+
+# Print the table
+print(Formatted_Table)
+as_latex(Formatted_Table)
+gtsave(Formatted_Table,paste0(root,'\\Output\\ScalingTable.png'))
+
+#Regression table
+ModeledValues = ModeledValues[,cluster:=Group_Names[cluster]]
+Mod_df <- as.data.frame(unique(ModeledValues[Group%in%c('A','B'),c('Group','Slope','Intercept','Qi','R_squared')]),by=c('Qi','Group'))
+
+# Create a gt table from the data frame
+gt_mod <- gt(data = Mod_df)
+
+# Perform any table formatting or styling using the gt package functions
+gt_mod <- gt_mod %>%
+  tab_style(style = cell_text(weight = "bold"),locations = cells_title()) %>%
+  #opt_horizontal_padding(scale=1) %>%
+  cols_label(R_squared = paste0('R','\U00B2'), Qi = 'R.I.') %>%
+  fmt_number(columns = c('R_squared','Slope','Intercept'),n_sigfig = 2) %>%
+  text_case_match("mean_Qcms" ~ "Mean Annual") %>%
+  tab_footnote('Group A includes Northern Parallel, Southern Plains, and Western Canada. Group B includes Appalachians, Central Canada, Northern Plains and Southwest')
+
+# Print the table
+print(gt_mod)
+as_latex(gt_mod)
+gtsave(gt_mod,paste0(root,'\\Output\\CoeffTable.png'))
