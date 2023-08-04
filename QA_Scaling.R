@@ -15,6 +15,10 @@ library(sf)
 library(viridis)
 library(ggspatial)
 library(gt)
+library(openxlsx)
+library(stats)
+library(qqplotr)
+library(patchwork)
 
 root = "C:\\Users\\cmeri\\OneDrive - Dartmouth College\\Research\\Runoff_Scaling"
 
@@ -37,8 +41,8 @@ PowerFit = function (cluster_list,data_table,Q_column){
   lmfit = lm(data=cluster,formula = log10(get(Q_column)) ~ log10(area))
   lmSummary = glance(lmfit)
   coefficients1 = setDT(tidy(lmfit))
-  coefficients = coefficients1[,c('cluster','k','c','StError_c','StError_k','p_value'):=.(cluster_list,coefficients1[1,10^(estimate)],coefficients1[2,estimate],coefficients1[2,std.error],coefficients1[1,std.error],coefficients1[2,p.value])]
-  Statistics = coefficients[,c('cluster','k','c','StError_c','StError_k','p_value')]
+  coefficients = coefficients1[,c('cluster','k','c','StError_c','StError_k','p_value','r_squared'):=.(cluster_list,coefficients1[1,10^(estimate)],coefficients1[2,estimate],coefficients1[2,std.error],coefficients1[1,std.error],coefficients1[2,p.value],summary(lmfit)$r.squared)]
+  Statistics = coefficients[,c('cluster','k','c','StError_c','StError_k','p_value','r_squared')]
 }
 
 Apply_Q = function(Q_column) {
@@ -79,7 +83,7 @@ krige_Q = function(Q,data) {
   plot(lzn.vgm, lzn.fit)
   
   # Krige
-  kriged <- krige(sf_data$Calc_c ~ 1, as_Spatial(sf_data$geometry), newdata=North_America_grid, model=lzn.fit)
+  kriged <- krige(sf_data$Calc_c ~ 1, as_Spatial(sf_data$geometry), newdata=North_America_grid, model=lzn.fit, maxdist=300000)
   kriged <- st_as_sf(kriged)
   
   Kriged_Map = st_intersection(kriged,North_America)
@@ -158,16 +162,18 @@ Annual = Annual[,c('RE_se'):=.(std.error(RunoffRatio)),by='cluster']
 RegressionData = merge(RegressionData,unique(Annual[,c('cluster','RE_se')],by='cluster'),by='cluster')
 RegressionData = merge(RegressionData,Statistics[,c('cluster','StError_c','Qi')],by=c('cluster','Qi'))
 
-ggplot(RegressionData[Qi=='Q100'],aes(AvRE,c))+
-  stat_smooth(data=RegressionData[Group%in%c('A','B') & Qi=='Q100'],method='lm',aes(color=Group),se=F)+
-  stat_cor(data=RegressionData[Group%in%c('A','B') & Qi=='Q100'],aes(color=Group,label=..rr.label..),label.x.npc = 0.75,label.y.npc = 0.3)+
-  stat_regline_equation(data=RegressionData[Group%in%c('A','B') & Qi=='Q100'],aes(color=Group),label.x.npc = 0.75,label.y.npc = 0.1)+
+ggplot(RegressionData[Qi=='mean_Qcms'],aes(AvRE,c))+
+  stat_smooth(data=RegressionData[Group%in%c('A','B') & Qi=='mean_Qcms'],method='lm',aes(color=Group),se=F)+
+  stat_cor(data=RegressionData[Group%in%c('A','B') & Qi=='mean_Qcms'],aes(color=Group,label=..rr.label..),label.x.npc = 0.75,label.y.npc = 0.3)+
+  stat_regline_equation(data=RegressionData[Group%in%c('A','B') & Qi=='mean_Qcms'],aes(color=Group),label.x.npc = 0.75,label.y.npc = 0.2)+
   geom_hline(yintercept = 1,linetype='dashed')+
   geom_errorbar(aes(ymin=c-StError_c, ymax=c+StError_c),alpha=0.3)+
   geom_errorbarh(aes(xmin=AvRE-RE_se,xmax=AvRE+RE_se),alpha=0.3)+
   geom_point()+
   geom_text(aes(label=Name),vjust=-1)+
+  scale_color_manual(values=c('blue','red'))+
   guides(color='none')+
+  labs(x='Average Runoff Efficiency', y='Scaling Parameter, \U1D450')+
   theme_bw()
 
 # Calculate c for each site using groupings
@@ -202,9 +208,9 @@ MeanMap = ggplot()+
   coord_sf(xlim = c(-3000000, 3000000), ylim = c(-2000000,3000000), expand = FALSE)+
   annotation_scale(location = "bl", width_hint = 0.25) +
   annotation_north_arrow(location = "bl", which_north = "true", 
-                         pad_x = unit(55, "pt"), pad_y = unit(25, "pt"),
+                         pad_x = unit(42, "pt"), pad_y = unit(25, "pt"),
                          style = north_arrow_nautical()) +
-  labs(x='Longitude',y='Latitude',fill='Kriged Scaling Parameter (c)',title='Mean Annual Discharge')
+  labs(x='Longitude',y='Latitude',fill=expression(paste('Scaling Exponent, ', italic('(c)'),sep = ' ')))
 
 Q2Map = ggplot()+
   geom_sf(data=st_as_sf(Q2_krige),aes(fill=var1.pred),color=NA)+
@@ -212,9 +218,9 @@ Q2Map = ggplot()+
   coord_sf(xlim = c(-3000000, 3000000), ylim = c(-2000000,3000000), expand = FALSE)+
   annotation_scale(location = "bl", width_hint = 0.25) +
   annotation_north_arrow(location = "bl", which_north = "true", 
-                         pad_x = unit(55, "pt"), pad_y = unit(25, "pt"),
+                         pad_x = unit(42, "pt"), pad_y = unit(25, "pt"),
                          style = north_arrow_nautical()) +
-  labs(x='Longitude',y='Latitude',fill='Kriged Scaling Parameter (c)',title='Q2')
+  labs(x='Longitude',y='Latitude',fill=expression(paste('Scaling Exponent, ', italic('(c)'),sep = ' ')))
 
 Q5Map = ggplot()+
   geom_sf(data=st_as_sf(Q5_krige),aes(fill=var1.pred),color=NA)+
@@ -222,9 +228,9 @@ Q5Map = ggplot()+
   coord_sf(xlim = c(-3000000, 3000000), ylim = c(-2000000,3000000), expand = FALSE)+
   annotation_scale(location = "bl", width_hint = 0.25) +
   annotation_north_arrow(location = "bl", which_north = "true", 
-                         pad_x = unit(55, "pt"), pad_y = unit(25, "pt"),
+                         pad_x = unit(42, "pt"), pad_y = unit(25, "pt"),
                          style = north_arrow_nautical()) +
-  labs(x='Longitude',y='Latitude',fill='Kriged Scaling Parameter (c)',title='Q5')
+  labs(x='Longitude',y='Latitude',fill=expression(paste('Scaling Exponent, ', italic('(c)'),sep = ' ')))
 
 Q10Map = ggplot()+
   geom_sf(data=st_as_sf(Q10_krige),aes(fill=var1.pred),color=NA)+
@@ -232,9 +238,9 @@ Q10Map = ggplot()+
   coord_sf(xlim = c(-3000000, 3000000), ylim = c(-2000000,3000000), expand = FALSE)+
   annotation_scale(location = "bl", width_hint = 0.25) +
   annotation_north_arrow(location = "bl", which_north = "true", 
-                         pad_x = unit(55, "pt"), pad_y = unit(25, "pt"),
+                         pad_x = unit(42, "pt"), pad_y = unit(25, "pt"),
                          style = north_arrow_nautical()) +
-  labs(x='Longitude',y='Latitude',fill='Kriged Scaling Parameter (c)',title='Q10')
+  labs(x='Longitude',y='Latitude',fill=expression(paste('Scaling Exponent, ', italic('(c)'),sep = ' ')))
 
 Q50Map = ggplot()+
   geom_sf(data=st_as_sf(Q50_krige),aes(fill=var1.pred),color=NA)+
@@ -242,9 +248,9 @@ Q50Map = ggplot()+
   coord_sf(xlim = c(-3000000, 3000000), ylim = c(-2000000,3000000), expand = FALSE)+
   annotation_scale(location = "bl", width_hint = 0.25) +
   annotation_north_arrow(location = "bl", which_north = "true", 
-                         pad_x = unit(55, "pt"), pad_y = unit(25, "pt"),
+                         pad_x = unit(42, "pt"), pad_y = unit(25, "pt"),
                          style = north_arrow_nautical()) +
-  labs(x='Longitude',y='Latitude',fill='Kriged Scaling Parameter (c)',title='Q50')
+  labs(x='Longitude',y='Latitude',fill=expression(paste('Scaling Exponent, ', italic('(c)'),sep = ' ')))
 
 Q100Map = ggplot()+
   geom_sf(data=st_as_sf(Q100_krige),aes(fill=var1.pred),color=NA)+
@@ -252,24 +258,24 @@ Q100Map = ggplot()+
   coord_sf(xlim = c(-3000000, 3000000), ylim = c(-2000000,3000000), expand = FALSE)+
   annotation_scale(location = "bl", width_hint = 0.25) +
   annotation_north_arrow(location = "bl", which_north = "true", 
-                         pad_x = unit(55, "pt"), pad_y = unit(25, "pt"),
+                         pad_x = unit(42, "pt"), pad_y = unit(25, "pt"),
                          style = north_arrow_nautical()) +
-  labs(x='Longitude',y='Latitude',fill='Kriged Scaling Parameter (c)',title='Q100')
+  labs(x='Longitude',y='Latitude',fill=expression(paste('Scaling Exponent, ', italic('(c)'),sep = ' ')))
 
 #### Tables ####
 Statistics = Statistics[,cluster:=Group_Names[cluster]]
-Stats_df <- as.data.frame(Statistics)
+Stats_df <- as.data.frame(Statistics[Qi=='Q100'])
 
 # Create a gt table from the data frame
 Formatted_Table <- gt(data = Stats_df)
 
 # Perform any table formatting or styling using the gt package functions
 Formatted_Table <- Formatted_Table %>%
-  tab_header(title = "Scaling Results") %>%
   tab_style(style = cell_text(weight = "bold"),locations = cells_title()) %>%
   opt_horizontal_padding(scale=3) %>%
-  cols_label(StError_c = 'St.E. c', StError_k = 'St.E. k', p_value = 'p-value', Qi = 'R.I.') %>%
-  fmt_number(columns = c('k','c','StError_c','StError_k','p_value'),n_sigfig = 2) %>%
+  cols_label(StError_c = 'St.E. c', StError_k = 'St.E. k', p_value = 'p-value',r_squared=paste0('R','\U00B2') ,Qi = 'Flow Magnitude') %>%
+  cols_align(align='center') %>%
+  fmt_number(columns = c('k','c','StError_c','StError_k','p_value','r_squared'),n_sigfig = 2) %>%
   fmt_scientific(columns = c('k','p_value'),decimals = 2) %>%
   text_case_match("mean_Qcms" ~ "Mean Annual")
 
@@ -287,14 +293,229 @@ gt_mod <- gt(data = Mod_df)
 
 # Perform any table formatting or styling using the gt package functions
 gt_mod <- gt_mod %>%
+  tab_header(title = 'Table 1') %>%
   tab_style(style = cell_text(weight = "bold"),locations = cells_title()) %>%
   #opt_horizontal_padding(scale=1) %>%
-  cols_label(R_squared = paste0('R','\U00B2'), Qi = 'R.I.') %>%
+  cols_label(R_squared = paste0('R','\U00B2'), Qi = 'Flow Magnitude') %>%
+  cols_align(align='center') %>%
   fmt_number(columns = c('R_squared','Slope','Intercept'),n_sigfig = 2) %>%
   text_case_match("mean_Qcms" ~ "Mean Annual") %>%
-  tab_footnote('Group A includes Northern Parallel, Southern Plains, and Western Canada. Group B includes Appalachians, Central Canada, Northern Plains and Southwest')
+  tab_footnote(html(paste('<b>Regression Equations are of the form c = (Slope * R\U2091) + Intercept.<b>
+                      <br>
+                      <b>Group A includes Northern Parallel, Southern Plains, and Western Canada.<b>
+                      <br>
+                      <b>Group B includes Appalachians, Central Canada, Northern Plains and Southwest.<b>')))
 
 # Print the table
 print(gt_mod)
 as_latex(gt_mod)
 gtsave(gt_mod,paste0(root,'\\Output\\CoeffTable.png'))
+
+#### Bankfull Geometry ####
+
+#Trampush data
+ChannelSize = setDT(read.xlsx(paste0(root,'\\Data\\ChannelSize_Data.xlsx')))
+setnames(ChannelSize,'Wbf.[m]','Width.(m)')
+
+# State Codes
+State_Codes = na.omit(setDT(copy(stateCd)))
+State_Codes = State_Codes[!(STUSAB%in%c('AK','HI','GU','PR','MP','AS'))]
+
+USGS_sites = data.table()
+for (i in unique(State_Codes$STUSAB)) {
+  USGS_data = whatNWISdata(stateCd=State_Codes[STUSAB==i,STUSAB],parameterCd="00060")
+  USGS_sites = rbind(USGS_sites,USGS_data)
+}
+USGS_sites = USGS_sites[,c(1:6)]
+
+write.csv(USGS_sites,paste0(root,'\\Data\\USGS_site_information.csv'))
+USGS_sites = read.csv(paste0(root,'\\Data\\USGS_site_information.csv'))
+setnames(USGS_sites,'station_nm','Site_Name')
+setnames(USGS_sites,'dec_lat_va','Latitude')
+setnames(USGS_sites,'dec_long_va','Longitude')
+
+# Phillips data
+Phillips = setDT(read.xlsx(paste0(root,'\\Data\\Phillips_et_al_2022.xlsx')))
+Phillips = Phillips[!(is.na(`Drainage.area.(km^2)`))]
+
+# Assign Location and Cluster
+Phillips = merge(Phillips,USGS_sites[,c('Site_Name','Latitude','Longitude')],by='Site_Name')
+
+Phillips_sf = st_as_sf(Phillips,coords = c('Latitude','Longitude'))
+HydroSites_sf = st_as_sf(HydroSites,coords = c('LATITUDE','LONGITUDE'))
+
+Phillips = Phillips[,cluster:=HydroSites[st_nearest_feature(Phillips_sf,HydroSites_sf),cluster]]
+
+Phillips = Phillips[,`Scale.Type`:=ifelse(cluster%in%c(1,2,4,6,7,10,12),'NonLinear','Linear')]
+setnames(Phillips,'Drainage.area.(km^2)','DrainageArea')
+Phillips = Phillips[,cluster_name:=Group_Names[cluster]]
+
+# Combine Datasets
+Width = rbind(Phillips[,c('Site_Name','DrainageArea','Width.(m)','cluster_name','Scale.Type')],ChannelSize[,c('Site_Name','DrainageArea','Width.(m)','cluster_name','Scale.Type')])
+Width = unique(Width,by=c('Site_Name','DrainageArea'))
+Width = Width[,Count:=.N,by='Site_Name']
+
+# Check Normality
+ggplot(ChannelSize[Scale.Type=='Linear'], mapping = aes(sample=log(Bankfull_Area))) +
+  stat_qq_band() +      # plots uncertainty band 
+  stat_qq_line() +      # plots line 
+  stat_qq_point()
+
+ggplot(ChannelSize[Scale.Type=='Linear'])+
+  geom_histogram(aes(x=log(Bankfull_Area)))+
+  theme_bw()
+
+ggplot(ChannelSize,aes(DrainageArea,Bankfull_Area,color=Scale.Type))+
+  geom_point()+
+  stat_smooth(method='lm',se=F)+
+  stat_cor(aes(label=..rr.label..),label.x.npc = 0.75,label.y.npc = 0.35)+
+  stat_regline_equation(label.x.npc = 0.75,label.y.npc = 0.2)+
+  scale_x_log10()+
+  scale_y_log10()+
+  scale_color_manual(values=c('cornflowerblue','darkred'))+
+  labs(x=bquote("Drainage Area "~(km^2)),y=bquote("Bankfull Channel Area "~(m^2)),color='Scaling Group')+
+  theme_bw()
+
+# t-test
+Linear = lm(Bankfull_Area ~ DrainageArea,ChannelSize[Scale.Type=='Linear'])
+NonLinear = lm(Bankfull_Area ~ DrainageArea,ChannelSize[Scale.Type=='NonLinear'])
+
+# Extract slope and standard error for linear
+slope_linear <- coef(Linear)[2]
+se_slope_linear <- summary(Linear)$coefficients[2, "Std. Error"]
+
+# Extract slope and standard error for group 2
+slope_nonlinear <- coef(NonLinear)[2]
+se_slope_nonlinear <- summary(NonLinear)$coefficients[2, "Std. Error"]
+
+# Calculate the standard error of the difference between slopes
+se_difference <- sqrt(se_slope_linear^2 + se_slope_nonlinear^2)
+
+# Calculate the t-statistic for comparing slopes
+t_stat <- (slope_linear - slope_nonlinear) / se_difference
+
+# Degrees of freedom for the t-test
+df <- min(nrow(ChannelSize[Scale.Type=='Linear']), nrow(ChannelSize[Scale.Type=='NonLinear'])) - 2
+
+# Calculate the p-value
+p_value <- 2 * pt(abs(t_stat), df = df, lower.tail = FALSE)
+ 
+#### Scaling Plot ####
+scientific <- function(l) {
+  # turn in to character string in scientific notation
+  l <- format(l, scientific = TRUE)
+  # quote the part before the exponent to keep all the digits
+  l <- gsub("^(.*)e", "'\\1'e", l)
+  # turn the 'e+' into plotmath format
+  l <- gsub("e", "%*%10^", l)
+  # return this as an expression
+  parse(text=l)
+}
+
+Annual = Annual[,Name:=Group_Names[cluster]]
+
+ggplot(Annual[Name=='Northern Atlantic' & area>10^7],aes(x=area,y=mean_Qcms))+
+  stat_function(fun = function(x) Statistics[cluster==9 & Qi=='Q2', k] * (x)^Statistics[cluster==9 & Qi=='mean_Qcms', c],linewidth=2)+
+  #stat_function(fun = function(x) (3*(10^-6)) * (x)^0.5,linetype='dashed')+
+  #stat_function(fun = function(x) (3*(10^-3)) * (x)^0.5,linetype='dashed')+
+  stat_function(fun = function(x) Statistics[cluster==4 & Qi=='Q2', k] * (x)^Statistics[cluster==4 & Qi=='mean_Qcms', c],color='#a7e831')+
+  stat_function(fun = function(x) Statistics[cluster==12 & Qi=='Q2', k] * (x)^Statistics[cluster==12 & Qi=='mean_Qcms', c],color='#2cf52b')+
+  stat_function(fun = function(x) Statistics[cluster==7 & Qi=='Q2', k] * (x)^Statistics[cluster==7 & Qi=='mean_Qcms', c],color='#0f1f5f')+
+  stat_function(fun = function(x) Statistics[cluster==6 & Qi=='Q2', k] * (x)^Statistics[cluster==6 & Qi=='mean_Qcms', c],color='#d0cc36')+
+  stat_function(fun = function(x) Statistics[cluster==1 & Qi=='Q2', k] * (x)^Statistics[cluster==1 & Qi=='mean_Qcms', c],color='#c79ae2')+
+  stat_function(fun = function(x) Statistics[cluster==10 & Qi=='Q2', k] * (x)^Statistics[cluster==10 & Qi=='mean_Qcms', c],color='#6ceac0')+
+  stat_function(fun = function(x) Statistics[cluster==2 & Qi=='Q2', k] * (x)^Statistics[cluster==2 & Qi=='mean_Qcms', c],color='#378811')+
+  scale_x_log10(labels=scientific,limits=c(10^7,10^10))+
+  scale_y_log10(labels=scientific)+
+  annotate('text',label='Southwest',x=10^9,y=0.1,angle=17)+
+  annotate('text',label='Northern Plains',x=10^8,y=0.4,angle=18)+
+  annotate('text',label='Southern Plains',x=10^9,y=4,angle=17)+
+  annotate('text',label='Central Canada',x=10^9.3,y=15,angle=20)+
+  annotate('text',label='Northern Parallel',x=10^7.5,y=2,angle=18)+
+  annotate('text',label='Western Canada',x=10^7.2,y=0.7,angle=23)+
+  annotate('text',label='Appalachians',x=10^9.5,y=50,angle=23)+
+  labs(x=bquote("Drainage Area "~(m^2)),y='Mean Annual Discharge (cms)')+
+  theme_bw()
+
+ggplot(Annual[Name%in%c('Northern Atlantic','Southwest')],aes(x=area/1000000,y=mean_Qcms))+
+  geom_point(aes(color=Name))+
+  stat_function(fun = function(x) setDT(tidy(lm(data=Annual[cluster==9],formula = log10((mean_Qcms)) ~ log10(area/1000000))))[1,10^estimate] * x^(setDT(tidy(lm(data=Annual[cluster==9],formula = log10((mean_Qcms)) ~ log10(area/1000000))))[2,estimate]))+
+  stat_function(fun = function(x) setDT(tidy(lm(data=Annual[cluster==10],formula = log10((mean_Qcms)) ~ log10(area/1000000))))[1,10^estimate] * x^(setDT(tidy(lm(data=Annual[cluster==10],formula = log10((mean_Qcms)) ~ log10(area/1000000))))[2,estimate]))+
+  scale_x_log10()+
+  scale_y_log10(labels=scales::comma)+
+  scale_color_manual(values=c("#5d1800", "#1ed598"))+
+  labs(x=bquote("Drainage Area "~(km^2)),y='Mean Annual Discharge (cms)',color='Hydro-Region')+
+  theme_bw()
+
+# Runoff Efficiency
+RE_data = readRDS("C:\\Users\\Cmeri\\OneDrive - Dartmouth College\\Research\\Runoff_Ratio\\Code_Exports\\Clustered_AllData.Rds")
+RE_data = unique(RE_data[,AvRE:=mean(RunoffRatio),by='site_number'],by='site_number')
+RE_data = RE_data[,Scaling:=ifelse(cluster%in%c(1,2,4,6,7,10,12),'NonLinear','Linear')]
+
+ggplot(RE_data,aes(GEEArea,AvRE,color=Scaling))+
+  #facet_wrap(vars(cluster),labeller = as_labeller(Group_Names))+
+  geom_point()+
+  geom_smooth(method='lm')+
+  scale_x_log10()+
+  scale_y_continuous(limits = c(0,1))+
+  #scale_color_manual(values=c("#c79ae2", "#378811", "#cb1775", "#a7e831", "#c6dbae", "#d0cc36", "#0f1f5f", "#5648d3", "#5d1800", "#6ceac0", "#f24219", "#2cf52b", "#b00bd9", "#0b4512", "#fa7ee3", "#6a7d54"),labels = c('1' = 'Northern Parallel','2' = 'Central Canada','3' = 'Rocky Mountains','4' = 'Appalachians','5' = 'Northern Pacific Coast','6' = 'Southern Plains','7' = 'Northern Plains','8' = 'Central East','9' = 'Northern Atlantic','10' = 'Southwest','11' = 'Southern Pacific Coast','12' = 'Western Canada','13' = 'Rocky Lowland','14' = 'Pacific Northwest','15' = 'Great Lakes','16' = 'Southeast'), breaks=c('1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16'))+
+  theme_bw()
+
+# Recurrence Interval Plot
+Statistics = Statistics[Qi!='mean_Qcms',RI:=as.numeric(gsub('Q','',Qi))]
+Statistics = Statistics[,c_slope:=coef(lm(c~RI))[2],by='cluster']
+
+Centroids = setDT(read.xlsx(paste0(root,'\\Data\\ClusterCentroids_shift.xlsx')))
+
+GrobSample = ggplot(Statistics[Qi!='mean_Qcms' & cluster%in%c(1,10)],aes(RI,c))+
+  geom_point()+
+  stat_smooth(method='lm',se=F,aes(color=ifelse(c_slope>0, 'Positive','Negative')))+
+  scale_color_manual(values = c('Positive'='red','Negative'='blue'))+
+  labs(x='Recurrence Interval',y='Scaling Exponent (c)',color='Magnitude')+
+  theme_bw()
+
+c_slope_map <- function(cluster_number){
+  long <- Centroids[cluster == cluster_number]$Cent_lon
+  lat <- Centroids[cluster == cluster_number]$Cent_lat
+  plot_sel <- Statistics[cluster == cluster_number]
+  return(annotation_custom(grob = ggplotGrob(
+    ggplot(plot_sel,aes(RI,c))+
+      geom_point()+
+      stat_smooth(method='lm',se=F,aes(color=ifelse(c_slope>0, 'red','blue')))+
+      scale_color_manual(values = c('red'='red','blue'='blue'))+
+      labs(x='Recurrence Interval',y='Scaling Exponent (c)',title = Group_Names[cluster_number])+
+      theme_minimal()+
+      theme(legend.position = 'none',plot.title = element_text(size=8,hjust = 0.5,vjust = 0.5),
+            axis.text.x = element_text(size=4), axis.text.y = element_blank(),
+            axis.title = element_text(size=5))
+  ),
+  xmin = long - 4.5, xmax = long + 4.5,
+  ymin = lat - 3.5, ymax = lat + 3.5))
+}
+
+extract_legend <- function(GrobObject) {
+  step1 <- ggplot_gtable(ggplot_build(GrobObject))
+  step2 <- which(sapply(step1$grobs, function(x) x$name) == "guide-box")
+  step3 <- step1$grobs[[step2]]
+  return(step3)
+}
+
+Map_c_slope = function(){
+  bar_sel = lapply(c(1:16),c_slope_map)
+  
+  Map = ggplot(data = NULL) +  
+    geom_sf(data=ne_countries(country = 'United States of America',type = 'countries',scale = 'medium', returnclass = 'sf'), fill='white',color = "gray60") +
+    geom_sf(data=ne_countries(country = 'Canada',type = 'countries',scale = 'medium', returnclass = 'sf'), fill='white',color = "gray60") + 
+    coord_sf(xlim = c(-142, -50), ylim = c(24.5, 60), expand = FALSE)+
+    annotation_scale(location = "bl", width_hint = 0.25) +
+    annotation_north_arrow(location = "bl", which_north = "true", 
+                           pad_x = unit(55, "pt"), pad_y = unit(25, "pt"),
+                           style = north_arrow_nautical()) +
+    labs(x='Longitude',y='Latitude')
+  
+  Combined = Map + bar_sel + inset_element(extract_legend(GrobSample),left = 0.9,bottom = 0.1,right = 0.98,top = 0.4)
+  
+  return(Combined)
+}
+
+Map_c_slope()
