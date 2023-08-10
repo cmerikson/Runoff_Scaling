@@ -19,6 +19,7 @@ library(openxlsx)
 library(stats)
 library(qqplotr)
 library(patchwork)
+library(scales)
 
 root = "C:\\Users\\cmeri\\OneDrive - Dartmouth College\\Research\\Runoff_Scaling"
 
@@ -172,9 +173,9 @@ ggplot(RegressionData[Qi=='mean_Qcms'],aes(AvRE,c))+
   geom_point()+
   geom_text(aes(label=Name),vjust=-1)+
   scale_color_manual(values=c('blue','red'))+
-  guides(color='none')+
-  labs(x='Average Runoff Efficiency', y='Scaling Parameter, \U1D450')+
-  theme_bw()
+  #guides(color='none')+
+  labs(x='Average Runoff Efficiency', y=expression(paste('Scaling Exponent, ', italic('(c)'),sep = ' ')))+
+  theme_bw()+theme(axis.title = element_text(size=20), axis.text = element_text(size=16),legend.text = element_text(size=16),legend.title = element_text(size=18))
 
 # Calculate c for each site using groupings
 Annual = merge(Annual,unique(RegressionData[,c('cluster','Group')],by='cluster'),by='cluster')
@@ -365,14 +366,19 @@ ggplot(ChannelSize[Scale.Type=='Linear'])+
   geom_histogram(aes(x=log(Bankfull_Area)))+
   theme_bw()
 
+breaks = 10^(-10:10)
+minor_braks = rep(1:9,21)*(10^rep(-10:10,each=9))
 ggplot(ChannelSize,aes(DrainageArea,Bankfull_Area,color=Scale.Type))+
   geom_point()+
   stat_smooth(method='lm',se=F)+
   stat_cor(aes(label=..rr.label..),label.x.npc = 0.75,label.y.npc = 0.35)+
-  stat_regline_equation(label.x.npc = 0.75,label.y.npc = 0.2)+
-  scale_x_log10()+
-  scale_y_log10()+
+  #stat_regline_equation(label.x.npc = 0.75,label.y.npc = 0.2)+
+  scale_x_continuous(trans = 'log10',breaks=breaks,minor_breaks=minor_braks)+
+  scale_y_continuous(trans = 'log10',breaks=breaks,minor_breaks=minor_braks)+
   scale_color_manual(values=c('cornflowerblue','darkred'))+
+  annotation_logticks(color = 'gray20')+
+  annotate('text',label=(expression(y==0.75*x^(0.65))),x=525,y=0.8,color='cornflowerblue')+
+  annotate('text',label=(expression(y==0.34*x^(0.8))),x=500,y=0.5,color='darkred')+
   labs(x=bquote("Drainage Area "~(km^2)),y=bquote("Bankfull Channel Area "~(m^2)),color='Scaling Group')+
   theme_bw()
 
