@@ -121,6 +121,29 @@ WSC_sites = HydroSites[nchar(site_number)<8] # 08LF033 has insufficient observat
 ScalingData = fread(paste0(root,'\\Data\\Runoff_HydroRegions.csv'), colClasses = c("site_number" = "character"))
 setnames(ScalingData,'GEEArea','area')
 
+# Summary Statistics
+SiteStatistics = copy(ScalingData)
+SiteStatistics = SiteStatistics[,Length:=.N,by='site_number']
+SiteStatistics = SiteStatistics[,AvClusterLength:=mean(Length),by='cluster']
+SiteStatistics = SiteStatistics[,SDClusterLength:=sd(Length),by='cluster']
+SiteStatistics = SiteStatistics[,SiteCount:=length(unique(site_number)),by='cluster']
+
+SiteStatistics = SiteStatistics[,cluster:=Group_Names[cluster]]
+SiteStats_df <- as.data.frame(unique(SiteStatistics,by='cluster'))
+
+Site_Table <- gt(data = SiteStats_df[,c('cluster','AvClusterLength','SDClusterLength','SiteCount')])
+
+Site_Table <- Site_Table %>%
+  tab_style(style = cell_text(weight = "bold"),locations = cells_title()) %>%
+  opt_horizontal_padding(scale=3) %>%
+  cols_label(cluster = 'Cluster', AvClusterLength = 'Mean Length of Record', SDClusterLength = 'Standard Deviation of Record Length',SiteCount= 'Number of Gauging Sites') %>%
+  cols_align(align='center') %>%
+  fmt_number(columns = c('AvClusterLength','SDClusterLength'),n_sigfig = 2) #%>%
+  #fmt_scientific(columns = c('k','p_value'),decimals = 2) %>%
+
+print(Site_Table)
+as_latex(Site_Table)
+  
 # Annual Data
 Annual = Annual[,c('site_number','year','mean_Qcms','LATITUDE','LONGITUDE','GEEArea','RunoffRatio','cluster')]
 Annual = Annual[,mean_Qcms:=mean(mean_Qcms),by='site_number']
