@@ -188,13 +188,13 @@ RegressionData = merge(RegressionData,Statistics[,c('cluster','StError_c','Qi')]
 
 ggplot(RegressionData[Qi=='mean_Qcms'],aes(AvRE,c))+
   stat_smooth(data=RegressionData[Group%in%c('A','B') & Qi=='mean_Qcms'],method='lm',aes(color=Group),se=F)+
-  stat_cor(data=RegressionData[Group%in%c('A','B') & Qi=='mean_Qcms'],aes(color=Group,label=..rr.label..),label.x.npc = 0.75,label.y.npc = 0.3)+
-  stat_regline_equation(data=RegressionData[Group%in%c('A','B') & Qi=='mean_Qcms'],aes(color=Group),label.x.npc = 0.75,label.y.npc = 0.2)+
+  stat_cor(data=RegressionData[Group%in%c('A','B') & Qi=='mean_Qcms'],aes(color=Group,label=..rr.label..),label.x.npc = 0.75,label.y.npc = 0.3,size=6)+
+  stat_regline_equation(data=RegressionData[Group%in%c('A','B') & Qi=='mean_Qcms'],aes(color=Group),label.x.npc = 0.75,label.y.npc = 0.2,size=6)+
   geom_hline(yintercept = 1,linetype='dashed')+
   geom_errorbar(aes(ymin=c-StError_c, ymax=c+StError_c),alpha=0.3)+
   geom_errorbarh(aes(xmin=AvRE-RE_se,xmax=AvRE+RE_se),alpha=0.3)+
   geom_point()+
-  geom_text(aes(label=Name),vjust=-1)+
+  geom_text(aes(label=Name),vjust=-1,size=5)+
   scale_color_manual(values=c('blue','red'))+
   #guides(color='none')+
   labs(x='Average Runoff Efficiency', y=expression(paste('Scaling Exponent, ', italic('(c)'),sep = ' ')))+
@@ -231,60 +231,66 @@ MeanMap = ggplot()+
   scale_fill_viridis(option='turbo', direction = -1,limits=c(0.45,1),oob=scales::squish)+
   coord_sf(xlim = c(-3000000, 3000000), ylim = c(-2000000,3000000), expand = FALSE)+
   annotation_scale(location = "bl", width_hint = 0.25) +
-  annotation_north_arrow(location = "bl", which_north = "true", 
+  annotation_north_arrow(location = "bl", which_north = "true", height = unit(2, 'cm'), width = unit(2,'cm'),
                          pad_x = unit(42, "pt"), pad_y = unit(25, "pt"),
                          style = north_arrow_nautical()) +
-  labs(x='Longitude',y='Latitude',fill=expression(paste('Scaling Exponent, ', italic('(c)'),sep = ' ')))
+  labs(x='Longitude',y='Latitude',fill=expression(paste('Scaling Exponent, ', italic('(c)'),sep = ' ')))+
+  theme(axis.title = element_text(size=20), axis.text = element_text(size=16),legend.text = element_text(size=16),legend.title = element_text(size=18))
 
 Q2Map = ggplot()+
   geom_sf(data=st_as_sf(Q2_krige),aes(fill=var1.pred),color=NA)+
   scale_fill_viridis(option='turbo', direction = -1,limits=c(0.45,1),oob=scales::squish)+
   coord_sf(xlim = c(-3000000, 3000000), ylim = c(-2000000,3000000), expand = FALSE)+
   annotation_scale(location = "bl", width_hint = 0.25) +
-  annotation_north_arrow(location = "bl", which_north = "true", 
+  annotation_north_arrow(location = "bl", which_north = "true", height = unit(2, 'cm'), width = unit(2,'cm'),
                          pad_x = unit(42, "pt"), pad_y = unit(25, "pt"),
                          style = north_arrow_nautical()) +
-  labs(x='Longitude',y='Latitude',fill=expression(paste('Scaling Exponent, ', italic('(c)'),sep = ' ')))
+  labs(x='Longitude',y='Latitude',fill=expression(paste('Scaling Exponent, ', italic('(c)'),sep = ' ')))+
+  theme(axis.title = element_text(size=20), axis.text = element_text(size=16),legend.text = element_text(size=16),legend.title = element_text(size=18))
 
 Q5Map = ggplot()+
   geom_sf(data=st_as_sf(Q5_krige),aes(fill=var1.pred),color=NA)+
   scale_fill_viridis(option='turbo', direction = -1,limits=c(0.45,1),oob=scales::squish)+
   coord_sf(xlim = c(-3000000, 3000000), ylim = c(-2000000,3000000), expand = FALSE)+
   annotation_scale(location = "bl", width_hint = 0.25) +
-  annotation_north_arrow(location = "bl", which_north = "true", 
+  annotation_north_arrow(location = "bl", which_north = "true", height = unit(2, 'cm'), width = unit(2,'cm'),
                          pad_x = unit(42, "pt"), pad_y = unit(25, "pt"),
                          style = north_arrow_nautical()) +
-  labs(x='Longitude',y='Latitude',fill=expression(paste('Scaling Exponent, ', italic('(c)'),sep = ' ')))
+  labs(x='Longitude',y='Latitude',fill=expression(paste('Scaling Exponent, ', italic('(c)'),sep = ' ')))+
+  theme(axis.title = element_text(size=20), axis.text = element_text(size=16),legend.text = element_text(size=16),legend.title = element_text(size=18))
 
 Q10Map = ggplot()+
   geom_sf(data=st_as_sf(Q10_krige),aes(fill=var1.pred),color=NA)+
   scale_fill_viridis(option='turbo', direction = -1,limits=c(0.45,1),oob=scales::squish)+
   coord_sf(xlim = c(-3000000, 3000000), ylim = c(-2000000,3000000), expand = FALSE)+
   annotation_scale(location = "bl", width_hint = 0.25) +
-  annotation_north_arrow(location = "bl", which_north = "true", 
+  annotation_north_arrow(location = "bl", which_north = "true", height = unit(2, 'cm'), width = unit(2,'cm'),
                          pad_x = unit(42, "pt"), pad_y = unit(25, "pt"),
                          style = north_arrow_nautical()) +
-  labs(x='Longitude',y='Latitude',fill=expression(paste('Scaling Exponent, ', italic('(c)'),sep = ' ')))
+  labs(x='Longitude',y='Latitude',fill=expression(paste('Scaling Exponent, ', italic('(c)'),sep = ' ')))+
+  theme(axis.title = element_text(size=20), axis.text = element_text(size=16),legend.text = element_text(size=16),legend.title = element_text(size=18))
 
 Q50Map = ggplot()+
   geom_sf(data=st_as_sf(Q50_krige),aes(fill=var1.pred),color=NA)+
   scale_fill_viridis(option='turbo', direction = -1,limits=c(0.45,1),oob=scales::squish)+
   coord_sf(xlim = c(-3000000, 3000000), ylim = c(-2000000,3000000), expand = FALSE)+
   annotation_scale(location = "bl", width_hint = 0.25) +
-  annotation_north_arrow(location = "bl", which_north = "true", 
+  annotation_north_arrow(location = "bl", which_north = "true", height = unit(2, 'cm'), width = unit(2,'cm'),
                          pad_x = unit(42, "pt"), pad_y = unit(25, "pt"),
                          style = north_arrow_nautical()) +
-  labs(x='Longitude',y='Latitude',fill=expression(paste('Scaling Exponent, ', italic('(c)'),sep = ' ')))
+  labs(x='Longitude',y='Latitude',fill=expression(paste('Scaling Exponent, ', italic('(c)'),sep = ' ')))+
+  theme(axis.title = element_text(size=20), axis.text = element_text(size=16),legend.text = element_text(size=16),legend.title = element_text(size=18))
 
 Q100Map = ggplot()+
   geom_sf(data=st_as_sf(Q100_krige),aes(fill=var1.pred),color=NA)+
   scale_fill_viridis(option='turbo', direction = -1,limits=c(0.45,1),oob=scales::squish)+
   coord_sf(xlim = c(-3000000, 3000000), ylim = c(-2000000,3000000), expand = FALSE)+
   annotation_scale(location = "bl", width_hint = 0.25) +
-  annotation_north_arrow(location = "bl", which_north = "true", 
+  annotation_north_arrow(location = "bl", which_north = "true", height = unit(2, 'cm'), width = unit(2,'cm'),
                          pad_x = unit(42, "pt"), pad_y = unit(25, "pt"),
                          style = north_arrow_nautical()) +
-  labs(x='Longitude',y='Latitude',fill=expression(paste('Scaling Exponent, ', italic('(c)'),sep = ' ')))
+  labs(x='Longitude',y='Latitude',fill=expression(paste('Scaling Exponent, ', italic('(c)'),sep = ' ')))+
+  theme(axis.title = element_text(size=20), axis.text = element_text(size=16),legend.text = element_text(size=16),legend.title = element_text(size=18))
 
 #### Tables ####
 Statistics = Statistics[,cluster:=Group_Names[cluster]]
