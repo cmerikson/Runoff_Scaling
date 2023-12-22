@@ -18,4 +18,7 @@ We test that assumption across the United states and Canada. We find that, while
 We also find that locations with non-linear scaling tend to have low runoff efficiency. Stream channels in these watersheds may be primarily shaped by larger flows than channels in other watersheds.
 
 # Discharge - Drainage Area Scaling
-![A kriged map of the exponent describing the scaling of drainage area with discahrge.](https://github.com/cmerikson/Runoff_Scaling/files/13747156/Q2_map.pdf)
+<img width="789" alt="image" src="https://github.com/cmerikson/Runoff_Scaling/assets/109803481/2dcacd35-f1e5-4e41-bc02-acb47a121091">
+
+Figure: A kriged map of the exponent describing the scaling of drainage area with discahrge for the two-year flow.
+
